@@ -1,4 +1,4 @@
-# PDF Form Editor
+# Fill PDF from CSV
 
 A Python application that allows users to add input fields on PDF documents and generate multiple PDFs using data from a CSV file.
 
