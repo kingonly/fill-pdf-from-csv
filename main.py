@@ -1,26 +1,37 @@
 import tkinter as tk
-from tkinter import filedialog
+from tkinter import ttk, filedialog
 from pdf_viewer import PDFViewer
 
-def main():
-    # Create the main window
-    root = tk.Tk()
-    root.title("PDF Viewer")
+class App:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("PDF Form Editor")
+        
+        # Create main toolbar frame
+        self.toolbar = ttk.Frame(root)
+        self.toolbar.pack(fill=tk.X, padx=5, pady=5)
+        
+        # Create Open PDF button
+        self.open_btn = ttk.Button(self.toolbar, text="Open PDF", 
+                                  command=self.open_pdf)
+        self.open_btn.pack(side=tk.LEFT, padx=5)
     
-    # Create a function to handle file selection
-    def select_pdf():
-        file_path = filedialog.askopenfilename(
-            title="Select PDF File",
-            filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")]
+    def open_pdf(self):
+        pdf_path = filedialog.askopenfilename(
+            title="Select PDF",
+            filetypes=[("PDF files", "*.pdf")]
         )
-        if file_path:  # Only create viewer if a file was selected
-            viewer = PDFViewer(root, file_path)
-    
-    # Create a button to open file dialog
-    select_button = tk.Button(root, text="Open PDF", command=select_pdf)
-    select_button.pack(pady=20)
-    
-    # Start the application
+        
+        if pdf_path:
+            # Hide the Open PDF button
+            self.open_btn.pack_forget()
+            
+            # Create the PDF viewer
+            self.viewer = PDFViewer(self.root, pdf_path)
+
+def main():
+    root = tk.Tk()
+    app = App(root)
     root.mainloop()
 
 if __name__ == "__main__":
