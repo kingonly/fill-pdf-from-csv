@@ -17,10 +17,11 @@ A Python application that allows users to add input fields on PDF documents and 
 - Error handling with copyable error messages
 
 ## Requirements
+```
  bash
  pip install PyMuPDF # For PDF handling
  pip install Pillow # For image processing
-
+```
 
 ## Usage
 
