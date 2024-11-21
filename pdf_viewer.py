@@ -146,46 +146,47 @@ class PDFViewer:
             self.status_var.set(f"Current PDF: {os.path.basename(self.pdf_path)}")
     
     def save_fields(self):
-        """Save field configurations to JSON and create CSV template"""
-        if not self.form_fields:
-            messagebox.showwarning("No Fields", "No input fields have been added.")
-            return
-        
-        # Get save path for JSON
-        json_path = filedialog.asksaveasfilename(
-            defaultextension=".json",
-            filetypes=[("JSON files", "*.json")],
-            initialfile=f"{os.path.splitext(os.path.basename(self.pdf_path))[0]}_fields.json"
-        )
-        
-        if not json_path:
-            return
+        try:
+            print("\nSaving fields:")
+            print(f"PDF dimensions: {self.doc[0].rect.width} x {self.doc[0].rect.height}")
+            print("-" * 80)
             
-        # Save field configurations
-        field_config = [
-            {
-                'name': field['name'],
-                'x': field['x'],
-                'y': field['y'],
-                'width': field['width'],
-                'height': field['height'],
-                'font_size': field['font_size']
-            }
-            for field in self.form_fields
-        ]
-        
-        with open(json_path, 'w') as f:
-            json.dump(field_config, f, indent=4)
-        
-        # Create CSV template
-        csv_path = os.path.splitext(json_path)[0] + "_template.csv"
-        with open(csv_path, 'w', newline='') as f:
-            writer = csv.writer(f)
-            writer.writerow([field['name'] for field in self.form_fields])
-        
-        messagebox.showinfo("Success", 
-            f"Field configuration saved to:\n{json_path}\n\n"
-            f"CSV template created at:\n{csv_path}")
+            json_path = filedialog.asksaveasfilename(
+                defaultextension='.json',
+                filetypes=[('JSON files', '*.json')],
+                title="Save Field Configuration"
+            )
+            
+            if not json_path:
+                return
+            
+            fields = []
+            for field in self.form_fields:
+                # Get coordinates of the rectangle (box)
+                box_coords = self.canvas.coords(field['rect'])
+                box_x = box_coords[0]
+                box_y = box_coords[1]
+                
+                print(f"Field '{field['name']}': "
+                      f"Box coordinates ({box_x}, {box_y})")
+                
+                fields.append({
+                    'name': field['name'],
+                    'x': box_x,
+                    'y': box_y,
+                    'width': field['width'],
+                    'height': field['height'],
+                    'font_size': field['font_size']
+                })
+            
+            with open(json_path, 'w') as f:
+                json.dump(fields, f, indent=4)
+            
+            self.status_var.set(f"✅ Saved {len(fields)} fields to {os.path.basename(json_path)}")
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to save fields:\n{str(e)}")
+            self.status_var.set("❌ Failed to save fields")
     
     def process_with_csv(self):
         """Process CSV data to create filled PDFs"""
@@ -260,20 +261,37 @@ class PDFViewer:
         doc = fitz.open(self.pdf_path)
         page = doc[0]
         
+        print("\nRendering PDF:")
+        print(f"PDF dimensions: {doc[0].rect.width} x {doc[0].rect.height}")
+        print("-" * 80)
+        
         for field in self.field_config:
             text = data[field['name']]
+            
+            # Scale coordinates
+            render_x = field['x'] / 2
+            render_y = field['y'] / 2
+            
+            # Calculate baseline position (about 80% down from the top of the field)
+            baseline_offset = (field['height'] / 2) * 0.8
+            render_y += baseline_offset
+            
+            print(f"Field '{field['name']}': "
+                  f"Original({field['x']}, {field['y']}) -> "
+                  f"Rendered({render_x}, {render_y})")
+            
             rect = fitz.Rect(
-                field['x'], 
-                field['y'], 
-                field['x'] + field['width'], 
-                field['y'] + field['height']
+                render_x, 
+                render_y, 
+                render_x + (field['width'] / 2), 
+                render_y + (field['height'] / 2)
             )
             page.insert_text(
-                rect.tl,                     # Insert at top-left point
+                rect.tl,
                 text,
                 fontsize=field['font_size'],
-                color=(0, 0, 0),            # Black text
-                render_mode=0               # Solid text
+                color=(0, 0, 0),
+                render_mode=0
             )
         
         doc.save(output_path)
@@ -402,23 +420,23 @@ class PDFViewer:
         x, y = field['x'], field['y']
         w, h = field['width'], field['height']
         
-        # Draw field rectangle
+        # Draw field rectangle at the loaded coordinates
         field['rect'] = self.canvas.create_rectangle(
             x, y, x + w, y + h,
             outline='blue',
             width=2
         )
         
-        # Draw field name as draggable label
+        # Draw field name label ABOVE the rectangle
         field['label'] = self.canvas.create_text(
-            x, y - 10,
+            x, y - 10,  # Position label above the box
             text=field['name'],
             anchor='sw',
             fill='blue',
-            tags='draggable'  # Add tag for drag functionality
+            tags='draggable'
         )
         
-        # Create entry widget for testing
+        # Create entry widget
         entry = tk.Entry(self.canvas)
         entry.configure(font=('Segoe UI', field['font_size']))
         entry.place(x=x+1, y=y+1, width=w-2, height=h-2)
@@ -427,7 +445,7 @@ class PDFViewer:
         # Draw resize handles
         self.draw_resize_handles(field)
         
-        # Bind drag events to the label
+        # Bind events
         self.canvas.tag_bind(field['label'], '<Button-1>', 
             lambda e, f=field: self.start_drag(e, f))
         self.canvas.tag_bind(field['label'], '<B1-Motion>', 
