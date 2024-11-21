@@ -4,29 +4,46 @@ A Python application that allows users to add input fields on PDF documents and 
 
 ## Features
 
-- Load and display PDF documents
-- Add and configure input fields:
+- **PDF Form Creation**:
+  - Load and display PDF documents
   - Click to place fields
+  - Drag fields to reposition them
   - Resize fields using intuitive handles:
     - Vertical handle (║) to adjust width
     - Horizontal handle (═) to adjust height and font size
+  - Real-time field testing with live input
   - Name fields for data mapping
-- Save field configurations to JSON
-- Automatically generate CSV templates
-- Batch process PDFs using CSV data
-- Error handling with copyable error messages
 
-## Requirements
+- **Data Processing**:
+  - Save field configurations to JSON
+  - Automatically generate CSV templates
+  - Batch process PDFs using CSV data
+  - Error handling with copyable error messages
+
+## Installation
+
+1. Clone the repository:
+```bash
+git clone https://github.com/yourusername/fill-pdf-from-csv.git
+cd fill-pdf-from-csv
 ```
- bash
- pip install PyMuPDF # For PDF handling
- pip install Pillow # For image processing
+
+2. Create and activate a virtual environment:
+```bash
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+```
+
+3. Install dependencies:
+```bash
+pip install PyMuPDF  # For PDF handling
+pip install Pillow   # For image processing
 ```
 
 ## Usage
 
 ### Adding Form Fields
-1. Click "Open PDF" to load your template PDF
+1. Click "Open PDF Template" to load your template PDF
 2. Click "Add Input Field" to start placing fields
 3. Click on the PDF where you want to place a field
 4. Enter a name for the field when prompted
@@ -48,7 +65,15 @@ A Python application that allows users to add input fields on PDF documents and 
 - `main.py` - Application entry point
 - `pdf_viewer.py` - Main implementation of the PDF viewer and field editor
 
-## Output
+## Output Files
 - `your_template_fields.json` - Field configuration file
 - `your_template_template.csv` - CSV template for data input
 - `your_data_output_TIMESTAMP/` - Generated PDFs, one per CSV row
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
