@@ -16,6 +16,7 @@ class PDFViewer:
         self.form_fields = []
         self.selected_field = None
         self.resize_mode = None
+        self.has_unsaved_changes = False
         
         # Create main frame with no padding
         self.main_frame = ttk.Frame(parent)
@@ -37,6 +38,15 @@ class PDFViewer:
         )
         self.add_field_btn.pack(side=tk.LEFT, padx=5)
         
+        self.save_btn = ttk.Button(
+            self.button_frame, 
+            text="Save Fields", 
+            command=self.save_fields,
+            style='Welcome.TButton',
+            state='disabled'
+        )
+        self.save_btn.pack(side=tk.LEFT, padx=5)
+        
         self.load_btn = ttk.Button(
             self.button_frame,
             text="Load Fields",
@@ -45,19 +55,12 @@ class PDFViewer:
         )
         self.load_btn.pack(side=tk.LEFT, padx=5)
         
-        self.save_btn = ttk.Button(
-            self.button_frame, 
-            text="Save Fields", 
-            command=self.save_fields,
-            style='Welcome.TButton'
-        )
-        self.save_btn.pack(side=tk.LEFT, padx=5)
-        
         self.process_btn = ttk.Button(
             self.button_frame, 
             text="Process with CSV", 
             command=self.process_with_csv,
-            style='Welcome.TButton'
+            style='Welcome.TButton',
+            state='disabled'
         )
         self.process_btn.pack(side=tk.LEFT, padx=5)
         
@@ -187,21 +190,12 @@ class PDFViewer:
         except Exception as e:
             messagebox.showerror("Error", f"Failed to save fields:\n{str(e)}")
             self.status_var.set("❌ Failed to save fields")
+        
+        self.has_unsaved_changes = False
+        self.update_buttons_state()
     
     def process_with_csv(self):
         """Process CSV data to create filled PDFs"""
-        # Get JSON configuration
-        json_path = filedialog.askopenfilename(
-            title="Select Field Configuration",
-            filetypes=[("JSON files", "*.json")]
-        )
-        if not json_path:
-            return
-            
-        # Load field configuration
-        with open(json_path, 'r') as f:
-            self.field_config = json.load(f)
-        
         # Get CSV data file
         csv_path = filedialog.askopenfilename(
             title="Select CSV Data",
@@ -215,6 +209,8 @@ class PDFViewer:
         output_dir = f"{os.path.splitext(csv_path)[0]}_output_{timestamp}"
         
         try:
+            # Use current form_fields
+            self.field_config = self.form_fields
             self.process_pdfs(csv_path, output_dir)
         except Exception as e:
             error_message = str(e)
@@ -414,6 +410,8 @@ class PDFViewer:
         self.draw_field(field)
         self.is_adding_field = False
         self.status_var.set(f"Current PDF: {os.path.basename(self.pdf_path)}")
+        self.has_unsaved_changes = True
+        self.update_buttons_state()
     
     def draw_field(self, field):
         """Draw input field on canvas"""
@@ -613,6 +611,15 @@ class PDFViewer:
     
     def load_fields(self):
         """Load field configuration from JSON"""
+        # If there are existing fields, ask for confirmation
+        if self.form_fields:
+            if not messagebox.askyesno(
+                "Confirm Load",
+                "Loading a new configuration will discard current fields.\n\n"
+                "Do you want to continue?"
+            ):
+                return
+        
         json_path = filedialog.askopenfilename(
             title="Select Field Configuration",
             filetypes=[("JSON files", "*.json")]
@@ -620,7 +627,7 @@ class PDFViewer:
         
         if not json_path:
             return
-            
+        
         try:
             # Load field configuration
             with open(json_path, 'r') as f:
@@ -654,11 +661,16 @@ class PDFViewer:
                 self.draw_field(field)
             
             self.status_var.set(f"✅ Loaded {len(fields)} fields from {os.path.basename(json_path)}")
+            self.has_unsaved_changes = False  # Reset changes flag
+            self.update_buttons_state()  # Disable save button
             
         except Exception as e:
             messagebox.showerror("Error", 
                 f"Failed to load fields:\n{str(e)}")
             self.status_var.set("❌ Failed to load fields")
+        
+        self.has_unsaved_changes = False
+        self.update_buttons_state()
     
     def on_vertical_scroll(self, *args):
         """Handle vertical scrolling"""
@@ -684,3 +696,17 @@ class PDFViewer:
         """Update all field positions"""
         for field in self.form_fields:
             self.update_field_display(field)
+    
+    def update_buttons_state(self):
+        """Update state of all buttons based on current conditions"""
+        # Update save button
+        if self.has_unsaved_changes:
+            self.save_btn.configure(state='normal')
+        else:
+            self.save_btn.configure(state='disabled')
+        
+        # Update process button
+        if self.form_fields:
+            self.process_btn.configure(state='normal')
+        else:
+            self.process_btn.configure(state='disabled')
