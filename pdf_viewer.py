@@ -12,6 +12,7 @@ class PDFViewer:
         self.parent = parent
         self.pdf_path = pdf_path
         self.is_adding_field = False
+        self.is_naming_field = False
         self.form_fields = []
         self.selected_field = None
         self.resize_mode = None
@@ -20,13 +21,16 @@ class PDFViewer:
         self.main_frame = ttk.Frame(parent)
         self.main_frame.pack(fill=tk.BOTH, expand=True)
         
-        # Create toolbar with proper padding
+        # Create toolbar with white background
         self.toolbar = ttk.Frame(self.main_frame)
         self.toolbar.pack(fill=tk.X, padx=5, pady=8)
         
-        # Add toolbar buttons
+        # Left side: buttons
+        self.button_frame = ttk.Frame(self.toolbar)
+        self.button_frame.pack(side=tk.LEFT)
+        
         self.add_field_btn = ttk.Button(
-            self.toolbar, 
+            self.button_frame, 
             text="Add Input Field", 
             command=self.add_field_mode,
             style='Welcome.TButton'
@@ -34,7 +38,7 @@ class PDFViewer:
         self.add_field_btn.pack(side=tk.LEFT, padx=5)
         
         self.save_btn = ttk.Button(
-            self.toolbar, 
+            self.button_frame, 
             text="Save Fields", 
             command=self.save_fields,
             style='Welcome.TButton'
@@ -42,22 +46,27 @@ class PDFViewer:
         self.save_btn.pack(side=tk.LEFT, padx=5)
         
         self.process_btn = ttk.Button(
-            self.toolbar, 
+            self.button_frame, 
             text="Process with CSV", 
             command=self.process_with_csv,
             style='Welcome.TButton'
         )
         self.process_btn.pack(side=tk.LEFT, padx=5)
         
-        # Add status label
-        self.status_var = tk.StringVar(value=f"PDF: {os.path.basename(pdf_path)}")
+        # Add separator between buttons and status
+        ttk.Separator(self.toolbar, orient='vertical').pack(side=tk.LEFT, fill=tk.Y, padx=15, pady=5)
+        
+        # Right side: status/help text with better styling
+        self.status_var = tk.StringVar(value=f"Current PDF: {os.path.basename(pdf_path)}")
         self.status_label = ttk.Label(
             self.toolbar,
             textvariable=self.status_var,
-            font=('Segoe UI', 10),
-            foreground='#6c757d'
+            font=('Segoe UI', 11),
+            foreground='#2c3e50',
+            background='#f8f9fa',
+            padding=(10, 5)
         )
-        self.status_label.pack(side=tk.RIGHT)
+        self.status_label.pack(side=tk.LEFT, fill=tk.Y)
         
         # Create canvas frame with no extra padding
         self.canvas_frame = ttk.Frame(self.main_frame)
@@ -105,11 +114,14 @@ class PDFViewer:
         
     def add_field_mode(self):
         """Toggle field addition mode"""
+        if self.is_naming_field:
+            return
+            
         self.is_adding_field = not self.is_adding_field
         if self.is_adding_field:
-            self.status_var.set("Click on PDF to add input field")
+            self.status_var.set("👉 Click on PDF to add input field")
         else:
-            self.status_var.set(f"PDF: {os.path.basename(self.pdf_path)}")
+            self.status_var.set(f"Current PDF: {os.path.basename(self.pdf_path)}")
     
     def save_fields(self):
         """Save field configurations to JSON and create CSV template"""
@@ -275,14 +287,17 @@ class PDFViewer:
     
     def on_canvas_click(self, event):
         """Handle canvas click events"""
-        if self.is_adding_field:
+        if self.is_adding_field and not self.is_naming_field:
             # Convert screen coordinates to canvas coordinates
             canvas_x = self.canvas.canvasx(event.x)
             canvas_y = self.canvas.canvasy(event.y)
             
+            # Set naming state
+            self.is_naming_field = True
+            
             # Create a frame to hold the label and entry
             frame = ttk.Frame(self.canvas)
-            frame.place(x=canvas_x, y=canvas_y - 55)  # Moved up to make room for label
+            frame.place(x=canvas_x, y=canvas_y - 55)
             
             # Add help label
             label = ttk.Label(
@@ -314,12 +329,14 @@ class PDFViewer:
                 field_name = entry.get().strip()
                 if field_name and field_name != "e.g., First Name, Email, Phone...":
                     frame.destroy()
+                    self.is_naming_field = False
                     self.add_input_field(canvas_x, canvas_y, field_name)
             
             def on_escape(event):
                 frame.destroy()
+                self.is_naming_field = False
                 self.is_adding_field = False
-                self.status_var.set(f"PDF: {os.path.basename(self.pdf_path)}")
+                self.status_var.set(f"Current PDF: {os.path.basename(self.pdf_path)}")
             
             # Bind events
             entry.bind('<FocusIn>', on_focus_in)
@@ -328,7 +345,7 @@ class PDFViewer:
             entry.bind('<Escape>', on_escape)
             
             # Update status
-            self.status_var.set("Press Enter to confirm or Escape to cancel")
+            self.status_var.set("✏️ Enter field name and press Enter to confirm")
     
     def add_input_field(self, x, y, field_name):
         """Add new input field at click position"""
@@ -345,7 +362,7 @@ class PDFViewer:
         self.form_fields.append(field)
         self.draw_field(field)
         self.is_adding_field = False
-        self.status_var.set(f"PDF: {os.path.basename(self.pdf_path)}")
+        self.status_var.set(f"Current PDF: {os.path.basename(self.pdf_path)}")
     
     def draw_field(self, field):
         """Draw input field on canvas"""
@@ -359,15 +376,16 @@ class PDFViewer:
             width=2
         )
         
-        # Draw field name
+        # Draw field name as draggable label
         field['label'] = self.canvas.create_text(
             x, y - 10,
             text=field['name'],
             anchor='sw',
-            fill='blue'
+            fill='blue',
+            tags='draggable'  # Add tag for drag functionality
         )
         
-        # Create entry widget with initial font size
+        # Create entry widget for testing
         entry = tk.Entry(self.canvas)
         entry.configure(font=('Segoe UI', field['font_size']))
         entry.place(x=x+1, y=y+1, width=w-2, height=h-2)
@@ -375,6 +393,14 @@ class PDFViewer:
         
         # Draw resize handles
         self.draw_resize_handles(field)
+        
+        # Bind drag events to the label
+        self.canvas.tag_bind(field['label'], '<Button-1>', 
+            lambda e, f=field: self.start_drag(e, f))
+        self.canvas.tag_bind(field['label'], '<B1-Motion>', 
+            lambda e, f=field: self.drag_field(e, f))
+        self.canvas.tag_bind(field['label'], '<ButtonRelease-1>', 
+            lambda e, f=field: self.stop_drag(e, f))
     
     def draw_resize_handles(self, field):
         """Draw handles for resizing the field"""
@@ -400,8 +426,17 @@ class PDFViewer:
         )
         
         # Bind events to handles
+        self.canvas.tag_bind(field['width_handle'], '<Enter>', 
+            lambda e: self.canvas.configure(cursor='sb_h_double_arrow'))
+        self.canvas.tag_bind(field['width_handle'], '<Leave>', 
+            lambda e: self.canvas.configure(cursor=''))
         self.canvas.tag_bind(field['width_handle'], '<Button-1>', 
             lambda e, f=field: self.start_resize(e, f, 'width'))
+            
+        self.canvas.tag_bind(field['height_handle'], '<Enter>', 
+            lambda e: self.canvas.configure(cursor='sb_v_double_arrow'))
+        self.canvas.tag_bind(field['height_handle'], '<Leave>', 
+            lambda e: self.canvas.configure(cursor=''))
         self.canvas.tag_bind(field['height_handle'], '<Button-1>', 
             lambda e, f=field: self.start_resize(e, f, 'height'))
     
@@ -459,6 +494,38 @@ class PDFViewer:
         self.canvas.configure(cursor='')  # Reset cursor
         self.canvas.unbind('<B1-Motion>')
         self.canvas.unbind('<ButtonRelease-1>')
+    
+    def start_drag(self, event, field):
+        """Start dragging a field"""
+        # Store initial coordinates
+        self.drag_start_x = event.x
+        self.drag_start_y = event.y
+        self.field_start_x = field['x']
+        self.field_start_y = field['y']
+        # Change cursor to indicate dragging
+        self.canvas.configure(cursor='fleur')
+    
+    def drag_field(self, event, field):
+        """Move field while dragging"""
+        # Calculate movement delta
+        dx = event.x - self.drag_start_x
+        dy = event.y - self.drag_start_y
+        
+        # Update field position
+        new_x = self.field_start_x + dx
+        new_y = self.field_start_y + dy
+        
+        # Update field coordinates
+        field['x'] = new_x
+        field['y'] = new_y
+        
+        # Update display
+        self.update_field_display(field)
+    
+    def stop_drag(self, event, field):
+        """Stop dragging a field"""
+        # Reset cursor
+        self.canvas.configure(cursor='')
     
     def update_field_display(self, field):
         """Update the display of a field"""
