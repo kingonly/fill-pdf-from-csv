@@ -37,6 +37,14 @@ class PDFViewer:
         )
         self.add_field_btn.pack(side=tk.LEFT, padx=5)
         
+        self.load_btn = ttk.Button(
+            self.button_frame,
+            text="Load Fields",
+            command=self.load_fields,
+            style='Welcome.TButton'
+        )
+        self.load_btn.pack(side=tk.LEFT, padx=5)
+        
         self.save_btn = ttk.Button(
             self.button_frame, 
             text="Save Fields", 
@@ -95,10 +103,18 @@ class PDFViewer:
             command=self.canvas.xview
         )
         
+        # Configure canvas and scrollbars
         self.canvas.configure(
-            yscrollcommand=self.scrolly.set,
-            xscrollcommand=self.scrollx.set
+            yscrollcommand=self.on_vertical_scroll,
+            xscrollcommand=self.on_horizontal_scroll
         )
+        
+        self.scrolly.configure(command=self.canvas.yview)
+        self.scrollx.configure(command=self.canvas.xview)
+        
+        # Bind mouse wheel
+        self.canvas.bind('<MouseWheel>', self.on_mousewheel)
+        self.canvas.bind('<Shift-MouseWheel>', self.on_shift_mousewheel)
         
         # Grid layout
         self.canvas.grid(row=0, column=0, sticky="nsew")
@@ -112,6 +128,12 @@ class PDFViewer:
         self.doc = fitz.open(pdf_path)
         self.display_page()
         
+        # Bind scroll events
+        self.canvas.bind('<Configure>', self.on_canvas_scroll)
+        self.scrollx.bind('<ButtonRelease-1>', self.on_canvas_scroll)
+        self.scrolly.bind('<ButtonRelease-1>', self.on_canvas_scroll)
+        self.canvas.bind('<MouseWheel>', self.on_canvas_scroll)
+    
     def add_field_mode(self):
         """Toggle field addition mode"""
         if self.is_naming_field:
@@ -292,12 +314,19 @@ class PDFViewer:
             canvas_x = self.canvas.canvasx(event.x)
             canvas_y = self.canvas.canvasy(event.y)
             
+            # Get scroll position
+            scroll_x = self.canvas.canvasx(0)
+            scroll_y = self.canvas.canvasy(0)
+            
             # Set naming state
             self.is_naming_field = True
             
             # Create a frame to hold the label and entry
             frame = ttk.Frame(self.canvas)
-            frame.place(x=canvas_x, y=canvas_y - 55)
+            frame.place(
+                x=canvas_x - scroll_x,  # Adjust for scroll position
+                y=canvas_y - scroll_y - 55  # Adjust for scroll position and offset
+            )
             
             # Add help label
             label = ttk.Label(
@@ -336,13 +365,17 @@ class PDFViewer:
                 frame.destroy()
                 self.is_naming_field = False
                 self.is_adding_field = False
-                self.status_var.set(f"Current PDF: {os.path.basename(self.pdf_path)}")
+                self.status_var.set(f"PDF: {os.path.basename(self.pdf_path)}")
             
             # Bind events
             entry.bind('<FocusIn>', on_focus_in)
             entry.bind('<FocusOut>', on_focus_out)
             entry.bind('<Return>', on_enter)
             entry.bind('<Escape>', on_escape)
+            
+            # Store frame reference to update position during scroll
+            self.naming_frame = frame
+            self.naming_field_pos = (canvas_x, canvas_y)
             
             # Update status
             self.status_var.set("✏️ Enter field name and press Enter to confirm")
@@ -532,15 +565,104 @@ class PDFViewer:
         x, y = field['x'], field['y']
         w, h = field['width'], field['height']
         
+        # Get canvas scroll position
+        scroll_x = self.canvas.canvasx(0)
+        scroll_y = self.canvas.canvasy(0)
+        
         # Update rectangle
         self.canvas.coords(field['rect'], x, y, x + w, y + h)
         
         # Update label
         self.canvas.coords(field['label'], x, y - 10)
         
-        # Update entry widget
-        field['entry'].place(x=x+1, y=y+1, width=w-2, height=h-2)
+        # Update entry widget with scroll offset
+        field['entry'].place(
+            x=x - scroll_x + 1,
+            y=y - scroll_y + 1,
+            width=w-2,
+            height=h-2
+        )
         
         # Update resize handles
         self.canvas.coords(field['width_handle'], x + w, y + h/2)
         self.canvas.coords(field['height_handle'], x + w/2, y + h)
+    
+    def on_canvas_scroll(self, *args):
+        """Handle canvas scroll events"""
+        # Update all field positions
+        for field in self.form_fields:
+            self.update_field_display(field)
+    
+    def load_fields(self):
+        """Load field configuration from JSON"""
+        json_path = filedialog.askopenfilename(
+            title="Select Field Configuration",
+            filetypes=[("JSON files", "*.json")]
+        )
+        
+        if not json_path:
+            return
+            
+        try:
+            # Load field configuration
+            with open(json_path, 'r') as f:
+                fields = json.load(f)
+            
+            # Clear existing fields
+            for field in self.form_fields:
+                if 'entry' in field:
+                    field['entry'].destroy()
+                self.canvas.delete(field['rect'])
+                self.canvas.delete(field['label'])
+                if 'width_handle' in field:
+                    self.canvas.delete(field['width_handle'])
+                if 'height_handle' in field:
+                    self.canvas.delete(field['height_handle'])
+            
+            # Reset form fields list
+            self.form_fields = []
+            
+            # Create fields from configuration
+            for field_config in fields:
+                field = {
+                    'name': field_config['name'],
+                    'x': field_config['x'],
+                    'y': field_config['y'],
+                    'width': field_config['width'],
+                    'height': field_config['height'],
+                    'font_size': field_config['font_size']
+                }
+                self.form_fields.append(field)
+                self.draw_field(field)
+            
+            self.status_var.set(f"✅ Loaded {len(fields)} fields from {os.path.basename(json_path)}")
+            
+        except Exception as e:
+            messagebox.showerror("Error", 
+                f"Failed to load fields:\n{str(e)}")
+            self.status_var.set("❌ Failed to load fields")
+    
+    def on_vertical_scroll(self, *args):
+        """Handle vertical scrolling"""
+        self.scrolly.set(*args)
+        self.update_all_fields()
+    
+    def on_horizontal_scroll(self, *args):
+        """Handle horizontal scrolling"""
+        self.scrollx.set(*args)
+        self.update_all_fields()
+    
+    def on_mousewheel(self, event):
+        """Handle mouse wheel scrolling"""
+        self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        self.update_all_fields()
+    
+    def on_shift_mousewheel(self, event):
+        """Handle horizontal mouse wheel scrolling"""
+        self.canvas.xview_scroll(int(-1 * (event.delta / 120)), "units")
+        self.update_all_fields()
+    
+    def update_all_fields(self):
+        """Update all field positions"""
+        for field in self.form_fields:
+            self.update_field_display(field)
