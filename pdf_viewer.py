@@ -225,7 +225,7 @@ class PDFViewer:
     def process_pdfs(self, csv_path, output_dir):
         """Create PDFs from CSV data"""
         # Validate CSV headers
-        with open(csv_path, 'r') as f:
+        with open(csv_path, 'r', encoding='utf-8') as f:
             reader = csv.DictReader(f)
             csv_fields = set(reader.fieldnames)
             expected_fields = {field['name'] for field in self.field_config}
@@ -243,7 +243,7 @@ class PDFViewer:
         os.makedirs(output_dir, exist_ok=True)
         
         # Process each row
-        with open(csv_path, 'r') as f:
+        with open(csv_path, 'r', encoding='utf-8') as f:
             reader = csv.DictReader(f)
             for i, row in enumerate(reader, 1):
                 output_path = os.path.join(output_dir, f"output_{i}.pdf")
@@ -276,18 +276,25 @@ class PDFViewer:
                   f"Original({field['x']}, {field['y']}) -> "
                   f"Rendered({render_x}, {render_y})")
             
+            # Create rectangle for text alignment
             rect = fitz.Rect(
                 render_x, 
-                render_y, 
+                render_y - (field['height'] / 2),  # Adjust y to account for full height
                 render_x + (field['width'] / 2), 
                 render_y + (field['height'] / 2)
             )
-            page.insert_text(
-                rect.tl,
+            
+            
+            # Reverse Hebrew text before rendering
+            text = text[::-1] if any('\u0590' <= c <= '\u05FF' for c in text) else text
+            
+            page.insert_textbox(
+                rect,
                 text,
                 fontsize=field['font_size'],
                 color=(0, 0, 0),
-                render_mode=0
+                align=1,  # 1 = center alignment
+                fontname="figo"
             )
         
         doc.save(output_path)
