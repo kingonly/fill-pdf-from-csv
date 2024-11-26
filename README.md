@@ -70,6 +70,11 @@ pip install Pillow   # For image processing
 - `your_template_template.csv` - CSV template for data input
 - `your_data_output_TIMESTAMP/` - Generated PDFs, one per CSV row
 
+## Example
+Here's a real world example of filling a tax exemption form:
+- [PDF](https://drive.google.com/file/d/1BipCLDSQ8vu8KcjNFuka5-yav3xO9SVt/view?usp=drive_link)
+- [Fields](https://drive.google.com/file/d/1KWCzxy64hdbj4E-uTu8jWBBcMpiZUkhs/view?usp=drive_link)
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
