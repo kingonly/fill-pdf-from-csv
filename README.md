@@ -75,6 +75,9 @@ Here's a real world example of filling a tax exemption form:
 - [PDF](https://drive.google.com/file/d/1BipCLDSQ8vu8KcjNFuka5-yav3xO9SVt/view?usp=drive_link)
 - [Fields](https://drive.google.com/file/d/1KWCzxy64hdbj4E-uTu8jWBBcMpiZUkhs/view?usp=drive_link)
 
+## Demo
+[![Fill PDF from CSV demo](https://github.com/user-attachments/assets/07ab7592-f235-47a8-8526-67ebdb7ebf25)](https://youtu.be/xOxPaVUNyoU "Fill PDF from CSV demo")
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
